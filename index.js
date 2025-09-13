@@ -33,7 +33,7 @@ async function run() {
     const db = client.db(process.env.DB_NAME);
     const teachersCollection = db.collection("teachers");
     const usersCollection = db.collection("users");
-    const contactsCollection = db.collection("contacts"); // ✅ New Collection
+    const contactsCollection = db.collection("contacts");
 
     // ----------------------------
     // 📌 Root Route
@@ -47,7 +47,7 @@ async function run() {
     // ============================
     app.post("/teachers", async (req, res) => {
       try {
-        const newTeacher = req.body;
+        const newTeacher = { ...req.body, status: "pending" };
         console.log("🆕 New Teacher:", newTeacher);
         const result = await teachersCollection.insertOne(newTeacher);
         res.status(201).json({ message: "✅ Teacher added successfully", result });
@@ -56,7 +56,18 @@ async function run() {
       }
     });
 
+    // শুধুমাত্র অনুমোদিত শিক্ষকদের পাওয়ার জন্য
     app.get("/teachers", async (req, res) => {
+      try {
+        const teachers = await teachersCollection.find({ status: "approved" }).toArray();
+        res.json(teachers);
+      } catch (error) {
+        res.status(500).json({ error: "❌ Failed to fetch teachers", details: error.message });
+      }
+    });
+
+    // Admin-এর জন্য সকল শিক্ষক (সব status) পাওয়ার জন্য
+    app.get("/admin/teachers", async (req, res) => {
       try {
         const teachers = await teachersCollection.find().toArray();
         res.json(teachers);
@@ -93,6 +104,27 @@ async function run() {
         res.json({ message: "✅ Teacher updated successfully" });
       } catch (error) {
         res.status(500).json({ error: "❌ Failed to update teacher", details: error.message });
+      }
+    });
+
+    // শিক্ষকের status আপডেট করার জন্য
+    app.patch("/teachers/:id/status", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { status } = req.body;
+        
+        const result = await teachersCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status } }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ error: "Teacher not found" });
+        }
+        
+        res.json({ message: `✅ Teacher status updated to ${status}` });
+      } catch (error) {
+        res.status(500).json({ error: "❌ Failed to update teacher status", details: error.message });
       }
     });
 
@@ -186,11 +218,15 @@ async function run() {
     });
 
     // ============================
-    // 📌 CONTACTS ROUTES (NEW)
+    // 📌 CONTACTS ROUTES - ENHANCED
     // ============================
     app.post("/contacts", async (req, res) => {
       try {
-        const newContact = req.body;
+        const newContact = { 
+          ...req.body, 
+          status: "unread", // Default status
+          createdAt: new Date() // Add timestamp
+        };
         console.log("🆕 New Contact:", newContact);
         const result = await contactsCollection.insertOne(newContact);
         res.status(201).json({ message: "✅ Contact added successfully", result });
@@ -201,7 +237,24 @@ async function run() {
 
     app.get("/contacts", async (req, res) => {
       try {
-        const contacts = await contactsCollection.find().toArray();
+        const { search, status } = req.query;
+        let filter = {};
+        
+        // Add search filter if provided
+        if (search) {
+          filter.$or = [
+            { name: { $regex: search, $options: 'i' } },
+            { email: { $regex: search, $options: 'i' } },
+            { message: { $regex: search, $options: 'i' } }
+          ];
+        }
+        
+        // Add status filter if provided
+        if (status && status !== 'all') {
+          filter.status = status;
+        }
+        
+        const contacts = await contactsCollection.find(filter).sort({ createdAt: -1 }).toArray();
         res.json(contacts);
       } catch (error) {
         res.status(500).json({ error: "❌ Failed to fetch contacts", details: error.message });
@@ -236,6 +289,27 @@ async function run() {
         res.json({ message: "✅ Contact updated successfully" });
       } catch (error) {
         res.status(500).json({ error: "❌ Failed to update contact", details: error.message });
+      }
+    });
+
+    // Contact status update endpoint
+    app.patch("/contacts/:id/status", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { status } = req.body;
+        
+        const result = await contactsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status } }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ error: "Contact not found" });
+        }
+        
+        res.json({ message: `✅ Contact status updated to ${status}` });
+      } catch (error) {
+        res.status(500).json({ error: "❌ Failed to update contact status", details: error.message });
       }
     });
 
