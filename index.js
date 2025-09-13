@@ -34,6 +34,7 @@ async function run() {
     const teachersCollection = db.collection("teachers");
     const usersCollection = db.collection("users");
     const contactsCollection = db.collection("contacts");
+    const BannersCollection = db.collection("banners");
 
     // ----------------------------
     // 📌 Root Route
@@ -142,6 +143,94 @@ async function run() {
       }
     });
 
+
+    
+    // ============================
+    // 📌 Banner ROUTES
+    // ============================
+
+    // Add new banner
+  app.post("/banners", async (req, res) => {
+    try {
+      const newBanner = { 
+        ...req.body, 
+        createdAt: new Date() 
+      };
+      const result = await BannersCollection.insertOne(newBanner);
+      res.status(201).json({ message: "✅ Banner added successfully", result });
+    } catch (error) {
+      res.status(500).json({ error: "❌ Failed to add banner", details: error.message });
+    }
+  });
+
+  // Get all banners
+app.get("/banners", async (req, res) => {
+  try {
+    const banners = await BannerCollection.find().sort({ createdAt: -1 }).toArray();
+    res.json(banners);
+  } catch (error) {
+    res.status(500).json({ error: "❌ Failed to fetch banners", details: error.message });
+  }
+});
+
+
+// Get banner by ID
+app.get("/banners/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const banner = await BannerCollection.findOne({ _id: new ObjectId(id) });
+    if (!banner) {
+      return res.status(404).json({ error: "Banner not found" });
+    }
+    res.json(banner);
+  } catch (error) {
+    res.status(500).json({ error: "❌ Failed to fetch banner", details: error.message });
+  }
+});
+
+
+// Update banner by ID
+app.put("/banners/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const updatedData = req.body;
+    const result = await BannerCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updatedData }
+    );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "Banner not found" });
+    }
+    res.json({ message: "✅ Banner updated successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "❌ Failed to update banner", details: error.message });
+  }
+});
+
+
+// Delete banner by ID
+app.delete("/banners/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const result = await BannerCollection.deleteOne({ _id: new ObjectId(id) });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "Banner not found" });
+    }
+    res.json({ message: "✅ Banner deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "❌ Failed to delete banner", details: error.message });
+  }
+});
+
+
+
+
+    
+
+
+
+
+
     // ============================
     // 📌 USERS ROUTES
     // ============================
@@ -202,6 +291,33 @@ async function run() {
         res.status(500).json({ error: "❌ Failed to update user", details: error.message });
       }
     });
+
+
+    // Update user role
+app.patch("/users/:id/role", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { role } = req.body; // expected: "admin" or "user"
+
+    if (!["admin", "user"].includes(role)) {
+      return res.status(400).json({ error: "Invalid role. Must be 'admin' or 'user'." });
+    }
+
+    const result = await usersCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { role } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ message: `✅ User role updated to ${role}` });
+  } catch (error) {
+    res.status(500).json({ error: "❌ Failed to update user role", details: error.message });
+  }
+});
+
 
     app.delete("/users/:id", async (req, res) => {
       try {
