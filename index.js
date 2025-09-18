@@ -4,7 +4,7 @@ const { MongoClient, ObjectId, ServerApiVersion } = require("mongodb");
 const cors = require("cors");
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 3000;
 
 // ----------------------------
 // 📌 Middleware
@@ -27,7 +27,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     console.log("✅ Connected to MongoDB");
 
     const db = client.db(process.env.DB_NAME);
@@ -35,6 +35,7 @@ async function run() {
     const usersCollection = db.collection("users");
     const contactsCollection = db.collection("contacts");
     const BannersCollection = db.collection("banners");
+    const ExamHeroHighlightsCollection = db.collection("examHeroHighlights");
 
     // ----------------------------
     // 📌 Root Route
@@ -166,7 +167,7 @@ async function run() {
   // Get all banners
 app.get("/banners", async (req, res) => {
   try {
-    const banners = await BannerCollection.find().sort({ createdAt: -1 }).toArray();
+    const banners = await BannersCollection.find().sort({ createdAt: -1 }).toArray();
     res.json(banners);
   } catch (error) {
     res.status(500).json({ error: "❌ Failed to fetch banners", details: error.message });
@@ -178,7 +179,7 @@ app.get("/banners", async (req, res) => {
 app.get("/banners/:id", async (req, res) => {
   try {
     const id = req.params.id;
-    const banner = await BannerCollection.findOne({ _id: new ObjectId(id) });
+    const banner = await BannersCollection.findOne({ _id: new ObjectId(id) });
     if (!banner) {
       return res.status(404).json({ error: "Banner not found" });
     }
@@ -194,7 +195,7 @@ app.put("/banners/:id", async (req, res) => {
   try {
     const id = req.params.id;
     const updatedData = req.body;
-    const result = await BannerCollection.updateOne(
+    const result = await BannersCollection.updateOne(
       { _id: new ObjectId(id) },
       { $set: updatedData }
     );
@@ -212,7 +213,7 @@ app.put("/banners/:id", async (req, res) => {
 app.delete("/banners/:id", async (req, res) => {
   try {
     const id = req.params.id;
-    const result = await BannerCollection.deleteOne({ _id: new ObjectId(id) });
+    const result = await BannersCollection.deleteOne({ _id: new ObjectId(id) });
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: "Banner not found" });
     }
@@ -333,6 +334,24 @@ app.patch("/users/:id/role", async (req, res) => {
       }
     });
 
+
+
+// ✅ Get user by email (for frontend role checking)
+app.get("/users/email/:email", async (req, res) => {
+  try {
+    const email = req.params.email;
+    const user = await usersCollection.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: "❌ Failed to fetch user", details: error.message });
+  }
+});
+
+
+
     // ============================
     // 📌 CONTACTS ROUTES - ENHANCED
     // ============================
@@ -442,6 +461,88 @@ app.patch("/users/:id/role", async (req, res) => {
         res.status(500).json({ error: "❌ Failed to delete contact", details: error.message });
       }
     });
+
+
+    // ============================
+// 📌 EXAM HERO HIGHLIGHTS ROUTES
+// ============================
+
+// ➕ Add new highlight
+app.post("/exam-hero-highlights", async (req, res) => {
+  try {
+    const newHighlight = {
+      ...req.body,
+      createdAt: new Date()
+    };
+    const result = await ExamHeroHighlightsCollection.insertOne(newHighlight);
+    res.status(201).json({ message: "✅ Highlight added successfully", result });
+  } catch (error) {
+    res.status(500).json({ error: "❌ Failed to add highlight", details: error.message });
+  }
+});
+
+// 📥 Get all highlights
+app.get("/exam-hero-highlights", async (req, res) => {
+  try {
+    const highlights = await ExamHeroHighlightsCollection.find()
+      .sort({ createdAt: -1 })
+      .toArray();
+    res.json(highlights);
+  } catch (error) {
+    res.status(500).json({ error: "❌ Failed to fetch highlights", details: error.message });
+  }
+});
+
+// 📥 Get single highlight by ID
+app.get("/exam-hero-highlights/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const highlight = await ExamHeroHighlightsCollection.findOne({ _id: new ObjectId(id) });
+    if (!highlight) {
+      return res.status(404).json({ error: "Highlight not found" });
+    }
+    res.json(highlight);
+  } catch (error) {
+    res.status(500).json({ error: "❌ Failed to fetch highlight", details: error.message });
+  }
+});
+
+// ✏️ Update highlight by ID
+app.put("/exam-hero-highlights/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const updatedData = req.body;
+    const result = await ExamHeroHighlightsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updatedData }
+    );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "Highlight not found" });
+    }
+    res.json({ message: "✅ Highlight updated successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "❌ Failed to update highlight", details: error.message });
+  }
+});
+
+// 🗑️ Delete highlight by ID
+app.delete("/exam-hero-highlights/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const result = await ExamHeroHighlightsCollection.deleteOne({ _id: new ObjectId(id) });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "Highlight not found" });
+    }
+    res.json({ message: "✅ Highlight deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "❌ Failed to delete highlight", details: error.message });
+  }
+});
+
+
+
+
+
 
     // ----------------------------
     // Start server
